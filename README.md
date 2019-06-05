@@ -5,7 +5,7 @@ Check-LocalAdminHash is a PowerShell tool that attempts to authenticate to multi
 
 The reason this script even exists is because on an assessment I wanted to gather all the PowerShell console history files (PSReadline) from every system on the network. The PSReadline console history is essentially the PowerShell version of bash history. It can include so many interesting things that people type into their terminals including passwords. So, included in this script is an option to exfiltrate all the PSReadline files as well. There is a bit of setup for this. See the end of the Readme for setup.
 
-## Examples
+For more info read the blog here: https://www.blackhillsinfosec.com/check-localadminhash-exfiltrating-all-powershell-history/# Examples
 
 
 ### Checking Local Admin Hash Against All Hosts Over WMI
