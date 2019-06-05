@@ -57,7 +57,7 @@ ExfilPSReadline - For each system where auth is successful it runs a PowerShell 
 ```
 
 ## PSReadline Exfiltration Setup
-**This is your warning** that you are about to setup an Internet-facing server that will accept file uploads. Typically, this is a very bad thing to do. So definitely take precautions when doing this. I would recommend **locking down firewall rules** so that only the IP that will be uploading PSReadline files can hit the web server. Also, while we on the topic of security, this will work just fine with an HTTPS connection so setup your domain and cert so that the PSReadline files are sent encrypted over the network. You have been warned...
+**This is your warning** that you are about to setup an Internet-facing server that will accept file uploads. Typically, this is a very bad thing to do. So definitely take precautions when doing this. I would recommend **locking down firewall rules** so that only the IP that will be uploading PSReadline files can hit the web server. Also, while we are on the topic of security, this will work just fine with an HTTPS connection so setup your domain and cert so that the PSReadline files are sent encrypted over the network. You have been warned...
 
   * Setup a server wherever you would like the files to be sent. This server must be reachable over HTTP/HTTPS from each system.
 
