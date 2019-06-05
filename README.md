@@ -38,7 +38,7 @@ Check-LocalAdminHash -Username PossibleAdminUser -PasswordHash E62830DAED8DBEA4A
 ### Single Target
 This command attempts to perform a local authentication for the user Administrator against the system 192.168.0.16 over SMB.
 ```PowerShell
-Check-LocalAdminHash -TargetSystem 192.168.0.16 -Username Administrato -PasswordHash E62830DAED8DBEA4ACD0B99D682946BB -Protocol SMB
+Check-LocalAdminHash -TargetSystem 192.168.0.16 -Username Administrator -PasswordHash E62830DAED8DBEA4ACD0B99D682946BB -Protocol SMB
 ```
 
 ### Check-LocalAdminHash Options
