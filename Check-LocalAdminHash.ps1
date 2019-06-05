@@ -50,7 +50,7 @@ Function Check-LocalAdminHash{
 
     Specify a CIDR form network range such as 192.168.0.0/24
 
-    .Threads
+    .PARAMETER Threads
 
     Defaults to 5 threads. (I've run into some odd issues setting threads more than 15 with some results not coming back.)
 
@@ -136,7 +136,9 @@ Param
                 param($Hostlist, $Username, $PasswordHash, $UserDomain, $Protocol)
                     
                      
-       
+       ##### Had to include Invoke-TheHash within this code block
+       ##### The rest of the Check-LocalAdminHash module is down near line 4616. 
+
 
 ##############Copied Code From Invoke-WMIExec included from Kevin Robertson's Invoke-TheHash Starts Here#########
 ################################### Thanks Kevin!!!! ############################################################
